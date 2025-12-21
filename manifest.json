@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Professor URL Collector",
+  "name": "googlepeel",
   "version": "1.0.0",
   "description": "Collects professor/faculty-related URLs from Google search results for academic research",
   "permissions": [
