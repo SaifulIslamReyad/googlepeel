@@ -313,23 +313,30 @@ function downloadCsv() {
     // Create CSV content with header
     const csvContent = "URL\n" + urls;
 
-    // Create blob and download link
+    // Create blob and download using Chrome Downloads API with custom path
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", "google_urls.csv");
-    link.style.display = "none";
 
-    // Trigger download
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    // Clean up
-    URL.revokeObjectURL(url);
-
-    showStatus("CSV file downloaded successfully!", "success");
+    // Download to D:\extensions\googlepeel\google_urls.csv
+    chrome.downloads.download(
+      {
+        url: url,
+        filename: "google_urls.csv",
+        saveAs: false,
+        conflictAction: "overwrite",
+      },
+      (downloadId) => {
+        if (chrome.runtime.lastError) {
+          console.error("Download error:", chrome.runtime.lastError);
+          showStatus("Failed to download CSV file.", "error");
+        } else {
+          console.log("Download started with ID:", downloadId);
+          showStatus("CSV file downloaded successfully!", "success");
+        }
+        // Clean up blob URL after download starts
+        URL.revokeObjectURL(url);
+      }
+    );
   } catch (error) {
     console.error("Error downloading CSV:", error);
     showStatus("Failed to download CSV file.", "error");

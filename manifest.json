@@ -5,7 +5,8 @@
   "description": "Collects professor/faculty-related URLs from Google search results for academic research",
   "permissions": [
     "activeTab",
-    "scripting"
+    "scripting",
+    "downloads"
   ],
   "host_permissions": [
     "https://www.google.com/*"
