@@ -10,6 +10,16 @@
   "host_permissions": [
     "https://www.google.com/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://www.google.com/search*"],
+      "js": ["auto-trigger.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "Collect Faculty URLs"
