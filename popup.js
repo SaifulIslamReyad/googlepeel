@@ -4,9 +4,6 @@
  */
 
 // DOM element references
-const downloadBtn = document.getElementById("downloadBtn");
-const copyBtn = document.getElementById("copyBtn");
-const clearBtn = document.getElementById("clearBtn");
 const urlList = document.getElementById("urlList");
 const urlCount = document.getElementById("urlCount");
 const status = document.getElementById("status");
@@ -19,13 +16,6 @@ const status = document.getElementById("status");
 function showStatus(message, type) {
   status.textContent = message;
   status.className = "status " + type;
-
-  // Auto-hide success/info messages after 3 seconds
-  if (type !== "error") {
-    setTimeout(() => {
-      status.className = "status";
-    }, 3000);
-  }
 }
 
 /**
@@ -33,11 +23,8 @@ function showStatus(message, type) {
  * @param {number} count - Number of URLs collected
  */
 function updateCount(count) {
-  if (count > 0) {
-    urlCount.textContent = `${count} URL${count !== 1 ? "s" : ""} collected`;
-  } else {
-    urlCount.textContent = "";
-  }
+  urlCount.textContent =
+    count > 0 ? `${count} URL${count !== 1 ? "s" : ""} collected` : "";
 }
 
 /**
@@ -267,35 +254,6 @@ async function collectUrls() {
 }
 
 /**
- * Copy all URLs from the textarea to clipboard
- */
-async function copyToClipboard() {
-  const urls = urlList.value.trim();
-
-  if (!urls) {
-    showStatus("No URLs to copy. Collect URLs first.", "error");
-    return;
-  }
-
-  try {
-    await navigator.clipboard.writeText(urls);
-    showStatus("URLs copied to clipboard!", "success");
-  } catch (error) {
-    console.error("Error copying to clipboard:", error);
-    showStatus("Failed to copy to clipboard.", "error");
-  }
-}
-
-/**
- * Clear all collected URLs from the textarea
- */
-function clearUrls() {
-  urlList.value = "";
-  updateCount(0);
-  status.className = "status";
-}
-
-/**
  * Download URLs as CSV file
  */
 function downloadCsv() {
@@ -317,7 +275,7 @@ function downloadCsv() {
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
 
-    // Download to D:\extensions\googlepeel\google_urls.csv
+    // Download CSV file
     chrome.downloads.download(
       {
         url: url,
@@ -325,16 +283,31 @@ function downloadCsv() {
         saveAs: false,
         conflictAction: "overwrite",
       },
-      (downloadId) => {
+      async (downloadId) => {
+        URL.revokeObjectURL(url);
+
         if (chrome.runtime.lastError) {
           console.error("Download error:", chrome.runtime.lastError);
           showStatus("Failed to download CSV file.", "error");
         } else {
           console.log("Download started with ID:", downloadId);
           showStatus("CSV file downloaded successfully!", "success");
+
+          // Close the Chrome tab after successful download
+          try {
+            const [tab] = await chrome.tabs.query({
+              active: true,
+              currentWindow: true,
+            });
+            if (tab) {
+              setTimeout(() => {
+                chrome.tabs.remove(tab.id);
+              }, 1000);
+            }
+          } catch (error) {
+            console.error("Error closing tab:", error);
+          }
         }
-        // Clean up blob URL after download starts
-        URL.revokeObjectURL(url);
       }
     );
   } catch (error) {
@@ -342,11 +315,6 @@ function downloadCsv() {
     showStatus("Failed to download CSV file.", "error");
   }
 }
-
-// Event listeners
-downloadBtn.addEventListener("click", downloadCsv);
-copyBtn.addEventListener("click", copyToClipboard);
-clearBtn.addEventListener("click", clearUrls);
 
 // Auto-collect URLs when popup opens
 window.addEventListener("DOMContentLoaded", () => {
