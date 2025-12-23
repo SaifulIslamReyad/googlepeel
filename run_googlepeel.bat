@@ -8,7 +8,6 @@ echo.
 
 set "CHROME=C:\Program Files\Google\Chrome\Application\chrome.exe"
 set "PROFILE=Profile 18"
-set "STATUS_FILE=%USERPROFILE%\Downloads\googlepeel_status.txt"
 
 rem CSV output path (you can customize this)
 set "CSV_OUTPUT_PATH=D:\extensions\googlepeel"
@@ -32,11 +31,6 @@ if not exist "%CHROME%" (
     exit /b 1
 )
 
-rem Initialize status file to "nothing"
-echo nothing > "%STATUS_FILE%"
-echo Status file created at: %STATUS_FILE%
-echo.
-
 echo [1/5] Launching Chrome with profile: %PROFILE%
 echo Search URL: %GOOGLE_URL%
 echo Extension will auto-trigger via URL hash (#googlepeel)
@@ -46,9 +40,6 @@ echo [2/5] Chrome launched. Extension will auto-trigger in 2 seconds...
 timeout /t 2 /nobreak > nul
 
 echo [3/5] Extension should now be running...
-
-rem Update status to working
-echo working > "%STATUS_FILE%"
 
 echo [4/5] Extension triggered. Monitoring status...
 echo.
@@ -98,7 +89,6 @@ goto :END
                     echo CSV file location: %DOWNLOADS_CSV%
                 )
                 
-                echo done > "%STATUS_FILE%"
                 echo.
                 goto :EOF
             )
@@ -111,7 +101,6 @@ goto :END
             echo ========================================
             echo Extension may still be running.
             echo Please check Chrome manually.
-            echo timeout > "%STATUS_FILE%"
             goto :EOF
         )
         
