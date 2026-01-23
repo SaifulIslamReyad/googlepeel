@@ -1,8 +1,8 @@
 /**
  * Professor URL Collector - Content Script
- * Extracts and filters faculty/professor-related URLs from Google search results
+ * Extracts and filters faculty/professor-related URLs from Startpage search results
  *
- * This script runs in the context of the Google search results page
+ * This script runs in the context of the Startpage search results page
  * and returns an array of filtered, deduplicated URLs.
  */
 
@@ -70,25 +70,22 @@
   }
 
   /**
-   * Check if a URL is a Google internal link (should be excluded)
+   * Check if a URL is a Startpage internal link (should be excluded)
    * @param {string} url - The URL to check
-   * @returns {boolean} - True if URL is a Google internal link
+   * @returns {boolean} - True if URL is a Startpage internal link
    */
-  function isGoogleInternalLink(url) {
-    const googlePatterns = [
+  function isStartpageInternalLink(url) {
+    const startpagePatterns = [
+      "startpage.com",
+      "startmail.com",
+      "/sp/search",
+      "/do/search",
       "google.com",
       "google.co.",
-      "gstatic.com",
-      "googleapis.com",
       "youtube.com",
       "youtu.be",
-      "/search?",
-      "accounts.google",
-      "support.google",
-      "policies.google",
-      "maps.google",
     ];
-    return googlePatterns.some((pattern) => url.includes(pattern));
+    return startpagePatterns.some((pattern) => url.includes(pattern));
   }
 
   /**
@@ -129,56 +126,70 @@
   // ============================================
 
   /**
-   * Extract organic search result URLs from Google search page
-   * Uses multiple selectors to capture results from different Google layouts
+   * Extract organic search result URLs from Startpage search page
+   * Uses multiple strategies to find all external links
    * @returns {string[]} - Array of extracted URLs
    */
   function extractOrganicResultUrls() {
     const urls = [];
 
-    // Selector strategies for Google organic results
-    // Google frequently changes their DOM structure, so we use multiple approaches
+    // Strategy 1: Target specific Startpage result link selectors
+    const resultSelectors = [
+      "a.result-title.result-link", // Main result title links
+      "a.result-link", // Result links
+      "a.wgl-display-url", // Display URL links
+      'a[data-testid="gl-title-link"]', // Title links with test ID
+      'a[data-testid="result-favicon"]', // Favicon links (also have URLs)
+      '.result a[href^="http"]', // Any http links inside result divs
+      '.w-gl a[href^="http"]', // Links inside web results container
+    ];
 
-    // Strategy 1: Main search result links (most common)
-    // These are typically in divs with data-ved attribute, containing <a> tags with href
-    const mainResults = document.querySelectorAll('#search a[href^="http"]');
-
-    // Strategy 2: Result containers with specific structure
-    const resultContainers = document.querySelectorAll('div.g a[href^="http"]');
-
-    // Strategy 3: Cite elements often contain the display URL
-    // But we want the actual link href, not the displayed text
-    const citeParentLinks = document.querySelectorAll("div.g cite");
-
-    // Collect from main results
-    mainResults.forEach((link) => {
-      const href = link.getAttribute("href");
-      if (href) {
-        urls.push(href);
+    // Try each selector
+    resultSelectors.forEach((selector) => {
+      try {
+        const links = document.querySelectorAll(selector);
+        links.forEach((link) => {
+          const href = link.getAttribute("href");
+          if (href && href.startsWith("http")) {
+            const lowerHref = href.toLowerCase();
+            if (
+              !lowerHref.includes("startpage.com") &&
+              !lowerHref.includes("startmail.com") &&
+              !lowerHref.includes("browse.startpage.com")
+            ) {
+              urls.push(href);
+            }
+          }
+        });
+      } catch (e) {
+        console.log(`Selector ${selector} failed:`, e);
       }
     });
 
-    // Collect from result containers
-    resultContainers.forEach((link) => {
+    // Strategy 2: Fallback - Get ALL links on the page that start with http
+    const allLinks = document.querySelectorAll('a[href^="http"]');
+
+    console.log(
+      `[Startpage Collector] Total links found on page: ${allLinks.length}`,
+    );
+
+    allLinks.forEach((link) => {
       const href = link.getAttribute("href");
       if (href) {
-        urls.push(href);
-      }
-    });
-
-    // Also check for links in the main content area
-    // This catches results that might use different markup
-    const mainContent =
-      document.querySelector("#main") || document.querySelector("#center_col");
-    if (mainContent) {
-      const contentLinks = mainContent.querySelectorAll('a[href^="http"]');
-      contentLinks.forEach((link) => {
-        const href = link.getAttribute("href");
-        if (href) {
+        // Skip startpage internal links at extraction level
+        const lowerHref = href.toLowerCase();
+        if (
+          !lowerHref.includes("startpage.com") &&
+          !lowerHref.includes("startmail.com") &&
+          !lowerHref.includes("browse.startpage.com")
+        ) {
           urls.push(href);
         }
-      });
-    }
+      }
+    });
+
+    // Log for debugging
+    console.log(`[Startpage URL Collector] Found ${urls.length} external URLs`);
 
     return urls;
   }
@@ -198,8 +209,8 @@
         return false;
       }
 
-      // Exclude Google internal links
-      if (isGoogleInternalLink(lowerUrl)) {
+      // Exclude Startpage internal links
+      if (isStartpageInternalLink(lowerUrl)) {
         return false;
       }
 
@@ -249,19 +260,19 @@
     // Step 1: Extract all URLs from organic search results
     const rawUrls = extractOrganicResultUrls();
     console.log(
-      `[Professor URL Collector] Extracted ${rawUrls.length} raw URLs`
+      `[Professor URL Collector] Extracted ${rawUrls.length} raw URLs`,
     );
 
     // Step 2: Filter URLs based on keywords
     const filteredUrls = filterUrls(rawUrls);
     console.log(
-      `[Professor URL Collector] Filtered to ${filteredUrls.length} matching URLs`
+      `[Professor URL Collector] Filtered to ${filteredUrls.length} matching URLs`,
     );
 
     // Step 3: Deduplicate URLs
     const uniqueUrls = deduplicateUrls(filteredUrls);
     console.log(
-      `[Professor URL Collector] Final ${uniqueUrls.length} unique URLs`
+      `[Professor URL Collector] Final ${uniqueUrls.length} unique URLs`,
     );
 
     return uniqueUrls;

@@ -1,14 +1,17 @@
 /**
  * Auto-trigger Content Script
- * Runs on Google search pages with #googlepeel hash
+ * Runs on Startpage search pages with #startpagepeel hash
  */
 
 (function () {
   "use strict";
 
-  // Check if URL has #googlepeel hash
-  if (window.location.hash === "#googlepeel") {
-    console.log("GooglePeel auto-trigger detected");
+  // Check if URL has #startpagepeel hash (also support legacy #googlepeel)
+  if (
+    window.location.hash === "#startpagepeel" ||
+    window.location.hash === "#googlepeel"
+  ) {
+    console.log("StartpagePeel auto-trigger detected");
 
     // Set initial status
     localStorage.setItem("googlepeel_status", "nothing");

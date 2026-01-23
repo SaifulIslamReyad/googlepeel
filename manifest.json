@@ -9,14 +9,14 @@
     "downloads"
   ],
   "host_permissions": [
-    "https://www.google.com/*"
+    "https://www.startpage.com/*"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["https://www.google.com/search*"],
+      "matches": ["https://www.startpage.com/*"],
       "js": ["auto-trigger.js"],
       "run_at": "document_idle"
     }

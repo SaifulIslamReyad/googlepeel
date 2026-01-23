@@ -74,33 +74,51 @@ async function goToNextPage(tabId) {
     const results = await chrome.scripting.executeScript({
       target: { tabId: tabId },
       func: () => {
-        // Try multiple selectors for the Next button
+        // Strategy 1: Find the "Next" pagination form and submit it
+        // Startpage uses form submission with POST for pagination
+        const nextForm = document.querySelector(
+          'form[aria-label="go to page Next"]',
+        );
+        if (nextForm) {
+          console.log("[Startpage] Found Next form, submitting...");
+          nextForm.submit();
+          return true;
+        }
+
+        // Strategy 2: Find form containing a button with "Next" text
+        const allForms = document.querySelectorAll(
+          ".pagination form, .pagination-container form",
+        );
+        for (const form of allForms) {
+          const button = form.querySelector("button");
+          if (button && button.textContent.toLowerCase().trim() === "next") {
+            console.log("[Startpage] Found Next button in form, submitting...");
+            form.submit();
+            return true;
+          }
+        }
+
+        // Strategy 3: Try button selectors for Next button
         const selectors = [
-          "a#pnnext",
-          'a[aria-label="Next page"]',
+          'button[data-testid="pagination-button"]',
+          "button.next",
+          "a.next",
+          'button[aria-label="Next"]',
           'a[aria-label="Next"]',
-          'td.b a[href*="start="]',
-          'a:has(span:contains("Next"))',
-          'a[href*="start="]',
+          ".pagination button:last-child",
+          ".pagination a:last-child",
+          "button.w-gl__pagination-button--next",
         ];
 
         let nextButton = null;
         for (const selector of selectors) {
           try {
-            if (selector.includes(":contains")) {
-              // Manual search for Next text
-              const links = document.querySelectorAll("a");
-              for (const link of links) {
-                if (
-                  link.textContent.toLowerCase().includes("next") &&
-                  link.href.includes("start=")
-                ) {
-                  nextButton = link;
-                  break;
-                }
+            const buttons = document.querySelectorAll(selector);
+            for (const btn of buttons) {
+              if (btn.textContent.toLowerCase().trim() === "next") {
+                nextButton = btn;
+                break;
               }
-            } else {
-              nextButton = document.querySelector(selector);
             }
             if (nextButton) break;
           } catch (e) {
@@ -108,17 +126,69 @@ async function goToNextPage(tabId) {
           }
         }
 
+        // Strategy 4: Fallback - search for Next text in buttons/links
+        if (!nextButton) {
+          const elements = document.querySelectorAll("button, a");
+          for (const el of elements) {
+            if (
+              el.textContent.toLowerCase().trim() === "next" ||
+              el.textContent.toLowerCase().includes("next page")
+            ) {
+              nextButton = el;
+              break;
+            }
+          }
+        }
+
         if (nextButton) {
-          nextButton.click();
+          console.log("[Startpage] Clicking Next button...");
+          // Check if button is inside a form
+          const parentForm = nextButton.closest("form");
+          if (parentForm) {
+            parentForm.submit();
+          } else {
+            nextButton.click();
+          }
           return true;
         }
+
+        console.log("[Startpage] No Next button/form found");
         return false;
       },
     });
 
     if (results[0]?.result) {
-      // Wait for page to load
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Wait for page to load - Form submission navigates to new page
+      // Need longer wait for full page navigation and DOM load
+      await new Promise((resolve) => setTimeout(resolve, 4000));
+
+      // Additional check: wait for content to be ready
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tabId },
+          func: () => {
+            return new Promise((resolve) => {
+              // Wait for results to appear
+              const checkResults = () => {
+                const results = document.querySelector(
+                  '.w-gl, .result, [class*="result"]',
+                );
+                if (results) {
+                  resolve(true);
+                } else {
+                  setTimeout(checkResults, 500);
+                }
+              };
+              checkResults();
+              // Timeout after 5 seconds
+              setTimeout(() => resolve(true), 5000);
+            });
+          },
+        });
+      } catch (e) {
+        // Ignore errors, just continue
+      }
+
       return true;
     }
     return false;
@@ -143,11 +213,11 @@ async function collectUrls() {
       currentWindow: true,
     });
 
-    // Validate that we're on a Google search page
-    if (!tab.url || !tab.url.includes("google.com/search")) {
+    // Validate that we're on a Startpage search page
+    if (!tab.url || !tab.url.includes("startpage.com")) {
       showStatus(
-        "Please navigate to a Google search results page first.",
-        "error"
+        "Please navigate to a Startpage search results page first.",
+        "error",
       );
       return;
     }
@@ -167,10 +237,13 @@ async function collectUrls() {
         // Add URLs to set (automatically handles duplicates)
         urls.forEach((url) => allUrls.add(url));
 
+        // Update textarea with current URLs (show progress in real-time)
+        urlList.value = Array.from(allUrls).join("\n");
+
         // Update status with current progress
         showStatus(
           `Collecting URLs from page ${page}/5... (${allUrls.size} URLs so far)`,
-          "info"
+          "info",
         );
         updateCount(allUrls.size);
 
@@ -184,13 +257,13 @@ async function collectUrls() {
               `Collected from ${page} page${
                 page !== 1 ? "s" : ""
               } (no more pages found)`,
-              "info"
+              "info",
             );
             break;
           }
 
-          // Small delay to ensure page is ready
-          await new Promise((resolve) => setTimeout(resolve, 1500));
+          // Small delay to ensure page content is fully loaded
+          await new Promise((resolve) => setTimeout(resolve, 2500));
         }
       } catch (error) {
         console.error(`Error on page ${page}:`, error);
@@ -198,7 +271,7 @@ async function collectUrls() {
         if (page < MAX_PAGES) {
           try {
             await goToNextPage(tab.id);
-            await new Promise((resolve) => setTimeout(resolve, 1500));
+            await new Promise((resolve) => setTimeout(resolve, 2500));
           } catch (navError) {
             console.error("Navigation error, stopping pagination:", navError);
             break;
@@ -224,7 +297,7 @@ async function collectUrls() {
       `Successfully collected ${finalUrls.length} URL${
         finalUrls.length !== 1 ? "s" : ""
       } from up to 5 pages!`,
-      "success"
+      "success",
     );
 
     // Set status to "done"
@@ -235,8 +308,8 @@ async function collectUrls() {
   } catch (error) {
     console.error("Error collecting URLs:", error);
     showStatus(
-      "Error: Could not collect URLs. Make sure you're on a Google search page.",
-      "error"
+      "Error: Could not collect URLs. Make sure you're on a Startpage search page.",
+      "error",
     );
     // Set status to "done" even on error
     try {
@@ -262,7 +335,7 @@ function downloadCsv() {
   if (!urls) {
     showStatus(
       "No URLs to download. Please wait for collection to complete.",
-      "error"
+      "error",
     );
     return;
   }
@@ -279,7 +352,7 @@ function downloadCsv() {
     chrome.downloads.download(
       {
         url: url,
-        filename: "google_urls.csv",
+        filename: "startpage_urls.csv",
         saveAs: false,
         conflictAction: "overwrite",
       },
@@ -308,7 +381,7 @@ function downloadCsv() {
             console.error("Error closing tab:", error);
           }
         }
-      }
+      },
     );
   } catch (error) {
     console.error("Error downloading CSV:", error);
