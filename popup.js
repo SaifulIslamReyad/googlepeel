@@ -287,6 +287,14 @@ async function collectUrls() {
       showStatus("No matching faculty/professor URLs found.", "info");
       urlList.value = "";
       updateCount(0);
+
+      // Set status to "done" even when no URLs found
+      await setPageStatus(tab.id, "done");
+
+      // Close the tab after a short delay
+      setTimeout(() => {
+        chrome.tabs.remove(tab.id);
+      }, 1000);
       return;
     }
 
