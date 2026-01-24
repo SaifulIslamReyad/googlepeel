@@ -284,18 +284,18 @@ async function collectUrls() {
     const finalUrls = Array.from(allUrls);
 
     if (finalUrls.length === 0) {
-      showStatus("No matching faculty/professor URLs found.", "info");
+      showStatus(
+        "No matching faculty/professor URLs found. Downloading empty CSV.",
+        "info",
+      );
       urlList.value = "";
       updateCount(0);
 
       // Set status to "done" even when no URLs found
       await setPageStatus(tab.id, "done");
 
-      // Close the tab after a short delay
-      setTimeout(() => {
-        chrome.tabs.remove(tab.id);
-      }, 1000);
-      return;
+      // Still download empty CSV file
+      downloadCsv();
     }
 
     // Display URLs in textarea (one per line)
@@ -340,17 +340,9 @@ async function collectUrls() {
 function downloadCsv() {
   const urls = urlList.value.trim();
 
-  if (!urls) {
-    showStatus(
-      "No URLs to download. Please wait for collection to complete.",
-      "error",
-    );
-    return;
-  }
-
   try {
-    // Create CSV content with header
-    const csvContent = "URL\n" + urls;
+    // Create CSV content with header (even if no URLs)
+    const csvContent = urls ? "URL\n" + urls : "URL";
 
     // Create blob and download using Chrome Downloads API with custom path
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });

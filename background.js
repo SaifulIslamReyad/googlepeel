@@ -59,12 +59,8 @@ async function startAutoCollection(tabId) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
-    // Download the results
-    if (allUrls.length > 0) {
-      await downloadUrls(allUrls);
-    } else {
-      console.log("No matching faculty/professor URLs found.");
-    }
+    // Download the results (even if empty)
+    await downloadUrls(allUrls);
 
     // Set status to done
     await setPageStatus(tabId, "done");
